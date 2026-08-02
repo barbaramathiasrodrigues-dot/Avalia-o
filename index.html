@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Ponderação dos Elfos - Avaliação Pós-Compra</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=MedievalSharp&display=swap" rel="stylesheet">
+
+  <style>
+    body { background-color: #0f0d0a; color: #e2d2b4; font-family: 'MedievalSharp', cursive, serif; }
+    .font-title { font-family: 'Cinzel Decorative', serif; }
+    .gold-border { border: 1px solid #b8860b; box-shadow: 0 0 10px rgba(184, 134, 11, 0.15); }
+    .elvish-glow:focus-within, .elvish-glow:hover { box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); border-color: #d4af37; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f0d0a; }
+    ::-webkit-scrollbar-thumb { background: #3a2e1e; border-radius: 3px; }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="p-3 md:p-5 min-h-screen flex flex-col justify-between relative" x-data="avaliacaoApp()">
+
+  <div class="max-w-4xl mx-auto w-full space-y-5">
+    
+    <!-- HEADER -->
+    <header class="flex justify-between items-center border-b border-[#3a2e1e] pb-3">
+      <div>
+        <h1 class="font-title text-xl md:text-2xl text-[#d4af37] tracking-wider drop-shadow-md">
+          ⚖️ A Ponderação dos Elfos
+        </h1>
+        <p class="text-[11px] md:text-xs text-[#a39274]">
+          Widget 12 • Avaliação Pós-Compra, Durabilidade & Satisfação
+        </p>
+      </div>
+
+      <button @click="carregarDados()" 
+        class="bg-[#1c1712] hover:bg-[#2e2316] text-[#d4af37] text-xs font-semibold py-1.5 px-3 rounded border border-[#b8860b]/40 flex items-center gap-1.5 transition cursor-pointer active:scale-95">
+        <span :class="carregando ? 'animate-spin' : ''">⚡</span>
+        <span x-text="carregando ? 'Sincronizando...' : 'Sincronizar'"></span>
+      </button>
+    </header>
+
+    <!-- FORMULÁRIO -->
+    <section class="bg-[#181410] p-4 rounded-lg gold-border space-y-3">
+      <h2 class="text-sm text-[#d4af37] font-semibold flex items-center justify-between">
+        <span class="flex items-center gap-2">
+          <span>✍️</span> 
+          <span>Registrar Ponderação Pós-Compra</span>
+        </span>
+      </h2>
+
+      <form @submit.prevent="salvarAvaliacao()" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <!-- Item Comprado (Módulo 09) -->
+        <div class="sm:col-span-2">
+          <label class="block text-[11px] text-[#a39274] mb-1">Selecione o Item Comprado</label>
+          <select x-model="compraSelecionadaId" required class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow">
+            <option value="">Escolha um item...</option>
+            <template x-for="item in comprasList" :key="item.id">
+              <option :value="item.id" x-text="item.nomeItem + ' (' + (item.loja || 'Loja') + ')'"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Nota / Estrelas -->
+        <div>
+          <label class="block text-[11px] text-[#a39274] mb-1">Nota / Satisfação</label>
+          <select x-model="nota" required class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow">
+            <option value="5">⭐⭐⭐⭐⭐ 5/5 (Perfeito / Excelente)</option>
+            <option value="4">⭐⭐⭐⭐ 4/5 (Muito Bom)</option>
+            <option value="3">⭐⭐⭐ 3/5 (Ok / Razoável)</option>
+            <option value="2">⭐⭐ 2/5 (Decepcionou)</option>
+            <option value="1">⭐ 1/5 (Ruim / Não Recomendo)</option>
+          </select>
+        </div>
+
+        <!-- Resenha / Comentário -->
+        <div class="sm:col-span-3">
+          <label class="block text-[11px] text-[#a39274] mb-1">Parecer Elfic / Resenha</label>
+          <input type="text" x-model="resenha" placeholder="Ex: Qualidade do material, se valeu o preço..." required class="w-full bg-[#0f0d0a] border border-[#3a2e1e] text-[#e2d2b4] text-xs rounded p-2.5 outline-none elvish-glow">
+        </div>
+
+        <!-- Botão Ação -->
+        <div class="sm:col-span-3 flex items-end">
+          <button type="submit" class="w-full bg-[#b8860b] hover:bg-[#d4af37] text-[#0f0d0a] font-bold py-2.5 px-4 text-xs rounded transition active:scale-95">
+            ⚖️ Registrar Ponderação
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LISTA DE AVALIAÇÕES -->
+    <section class="bg-[#14100c] p-4 rounded-lg border border-[#2e2316] space-y-3">
+      <h2 class="text-sm text-[#d4af37] font-semibold flex items-center justify-between border-b border-[#2e2316] pb-2">
+        <span>📜 Ponderações Registradas</span>
+        <span class="text-[10px] bg-[#2e2316] text-[#a39274] px-2 py-0.5 rounded-full" x-text="avaliacoes.length + ' avaliações'"></span>
+      </h2>
+
+      <div class="space-y-2 text-xs max-h-96 overflow-y-auto pr-1">
+        <template x-for="item in avaliacoes" :key="item.id">
+          <div class="bg-[#1c1712] p-3 rounded border border-[#2e2316] flex flex-col md:flex-row md:items-center justify-between gap-2 hover:border-[#b8860b]/40 transition">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-sm text-[#e2d2b4]" x-text="item.nomeItem"></span>
+                <span class="text-[11px] text-[#d4af37]" x-text="'⭐'.repeat(item.nota)"></span>
+              </div>
+              <p class="text-[11px] text-[#a39274] italic" x-text="'&quot;' + item.resenha + '&quot;'"></p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button @click="excluirAvaliacao(item.id)" class="text-[#8b0000] font-bold p-1">✕</button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="avaliacoes.length === 0">
+          <p class="text-xs text-[#6e5d4f] italic py-4 text-center">Nenhuma compra ponderada ainda.</p>
+        </template>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="mt-6 text-center text-[9px] text-[#6e5d4f] border-t border-[#2e2316] pt-2">
+    <span>A Ponderação dos Elfos • Projeto Erebor OS</span>
+  </footer>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDU3mYKoWh8qE3wj6R5OKqhWwXMeefEl2g",
+      authDomain: "erebor-os.firebaseapp.com",
+      projectId: "erebor-os",
+      storageBucket: "erebor-os.firebasestorage.app",
+      messagingSenderId: "733641275906",
+      appId: "1:733641275906:web:d83dedfee8bc056a7e851b"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('avaliacaoApp', () => ({
+        comprasList: [],
+        avaliacoes: [],
+        compraSelecionadaId: '',
+        nota: '5',
+        resenha: '',
+        carregando: false,
+
+        init() {
+          this.escutarCompras();
+          this.escutarAvaliacoes();
+        },
+
+        escutarCompras() {
+          db.collection("compras").onSnapshot((snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
+            this.comprasList = list;
+          });
+        },
+
+        escutarAvaliacoes() {
+          db.collection("avaliacoes").onSnapshot((snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
+            this.avaliacoes = list;
+          });
+        },
+
+        async salvarAvaliacao() {
+          if (!this.compraSelecionadaId || !this.resenha.trim()) return;
+
+          const compraObj = this.comprasList.find(c => c.id === this.compraSelecionadaId);
+          if (!compraObj) return;
+
+          try {
+            await db.collection("avaliacoes").add({
+              compraId: compraObj.id,
+              nomeItem: compraObj.nomeItem,
+              nota: parseInt(this.nota) || 5,
+              resenha: this.resenha.trim(),
+              criadoEm: new Date().toISOString()
+            });
+
+            this.compraSelecionadaId = '';
+            this.nota = '5';
+            this.resenha = '';
+          } catch(e) { console.error("Erro ao salvar avaliação:", e); }
+        },
+
+        async excluirAvaliacao(id) { await db.collection("avaliacoes").doc(id).delete(); },
+        carregarDados() { this.carregando = true; setTimeout(() => { this.carregando = false; }, 300); }
+      }));
+    });
+  </script>
+</body>
+</html>
